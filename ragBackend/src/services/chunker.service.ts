@@ -43,9 +43,24 @@ const getChunkType = (nodeType:string):string=>{
 let jsParser: Parser | null = null;
 let tsParser: Parser | null = null;
 
-const extractName = (node:Node):string=>{
-    const identifier  = node.children.find(child=> child.type === "identifier");
+const extractName = (node:Node,source:string):string=>{
+    const [identifier,propIdentifier,fieldIdentifier]  = [node.children.find(child=> child.type === "identifier"), node.children.find(child=> child.type === "property_identifier"), node.children.find(child=> child.type === "field_identifier")];
     if(identifier){
-        
+        const start = identifier.startIndex;
+        const end = identifier.endIndex;
+        return source.substring(start,end).trim();
     }
+    if(propIdentifier){
+        const start = propIdentifier.startIndex;
+        const end = propIdentifier.endIndex;
+        return source.substring(start,end).trim();
+    }
+    if(fieldIdentifier){
+        const start = fieldIdentifier.startIndex;
+        const end = fieldIdentifier.endIndex;
+        return source.substring(start,end).trim();
+    }
+    const raw = source.substring(node.startIndex,node.startIndex + 20).trim();
+    const cut = raw.split(/[\s({:=<]/)[0];
+    return cut;
 }
