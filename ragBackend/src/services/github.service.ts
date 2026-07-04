@@ -30,7 +30,12 @@ const BLOCKED_PATHS = [
   "build/",
   ".git/",
   ".next/",
-  "coverage/"
+  "coverage/",
+  "target/",
+  "__pycache__/",
+  "bin/",
+  "obj/",
+  ".pytest_cache/",
 ]
 
 const isSupported = (filePath: string):boolean=>{
@@ -54,8 +59,11 @@ const getLanguage=(filePath:string):string=>{
     case "java":
       return "java";
     case "c":
-    case "cpp":
+    case "h":
       return "c";
+    case "cpp":
+    case "hpp":
+      return "cpp";
     case "go":
       return "go";
     case "rb":
@@ -69,6 +77,9 @@ const getLanguage=(filePath:string):string=>{
       return "json";
     case "rs":
       return "rust";
+    case "md":
+    case "mdx":
+      return "markdown";
     default:
       return "unknown";
   }

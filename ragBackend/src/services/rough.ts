@@ -1,2 +1,2 @@
 
-console.log(__dirname)
+console.log("hello \n next line");
