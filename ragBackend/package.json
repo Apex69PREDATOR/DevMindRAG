@@ -10,7 +10,8 @@
     "prisma": "^6.19.3",
     "tree-sitter-wasms": "^0.1.13",
     "uuid": "^14.0.1",
-    "web-tree-sitter": "^0.26.9"
+    "web-tree-sitter": "^0.26.9",
+    "zod": "^4.4.3"
   },
   "name": "ragbackend",
   "version": "1.0.0",

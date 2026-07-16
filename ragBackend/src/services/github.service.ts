@@ -84,7 +84,7 @@ const getLanguage=(filePath:string):string=>{
       return "unknown";
   }
 }
-const parseOwnerAndRepo = (repoUrl: string): { owner: string; repo: string } => {
+export const parseOwnerAndRepo = (repoUrl: string): { owner: string; repo: string } => {
   const regex = /github\.com[:\/]([^\/]+)\/([^\/]+)(?:\.git)?/;
   const match = repoUrl.match(regex);
   if (!match) {
