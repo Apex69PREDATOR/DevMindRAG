@@ -9,9 +9,24 @@ datasource db {
 
 model Repository{
     id  String @id @default(uuid())
+    owner String
+    name String
+    fullName String
+    status String @default("pending")
+    chunksCount Int
+    lastSyncedAt DateTime @default(now())
+    isPrivate Boolean @default(false)
+    createdAt DateTime @default(now())
+    chats Chat[]
 }
 
-model Chats{
+model Chat{
     id String @id @default(uuid())
+    repoId String
+    repository Repository @relation(fields: [repoId], references: [id])
+    question String
+    answer String
+    source Json
+    createdAt DateTime @default(now())
 }
 
