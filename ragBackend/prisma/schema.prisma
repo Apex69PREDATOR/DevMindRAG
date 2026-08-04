@@ -7,17 +7,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+   id String @id @default(uuid())
+    username String @unique
+    email String @unique
+    password String?
+    oAuth Boolean @default(false)
+    provider String?
+    avatarUrl String?
+    createdAt DateTime @default(now())
+    githubId String? @unique
+    repositories Repository[]
+}
+
 model Repository{
     id  String @id @default(uuid())
     owner String
     name String
-    fullName String
+    fullName String @unique
     status String @default("pending")
-    chunksCount Int
-    lastSyncedAt DateTime @default(now())
+    chunksCount Int @default(0)
+    lastSyncedAt DateTime?
     isPrivate Boolean @default(false)
     createdAt DateTime @default(now())
     chats Chat[]
+    userId String
+    user User @relation(fields: [userId], references: [id])
+
 }
 
 model Chat{

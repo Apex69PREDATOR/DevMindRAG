@@ -137,7 +137,7 @@ const fetchRepoMetaData  = async(ocktokit: Octokit, repo: string, owner: string)
      }
 }
 
-export const fetchGithubRepo = async (repoUrl: string, pat: string) => {
+export const fetchGithubRepo = async (repoUrl: string, pat: string | undefined) => {
   const octokit = new Octokit({
     auth: pat,
   });
