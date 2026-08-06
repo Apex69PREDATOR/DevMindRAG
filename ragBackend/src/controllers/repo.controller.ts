@@ -18,6 +18,11 @@ const resyncRepoSchema = z.object({
 
 export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
     const parsedRepo = repoUrlSchema.safeParse(req.body)
+    const {id} = req.user as {id:string}
+    if(!id){
+        res.status(401).json({error:"Unauthorized"})
+        return
+    }
     if(!parsedRepo.success){
         res.status(400).json({details:z.treeifyError(parsedRepo.error)})
         return
@@ -33,7 +38,7 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
     }
    const repoRecord = await prisma.repository.upsert({
     where: { fullName },
-    create: { owner, name: repo, fullName, status: "ingesting" },
+    create: { owner, name: repo, fullName, status: "ingesting",userId:id },
     update: { status: "ingesting" },
   });
 
@@ -71,7 +76,7 @@ catch(err){
 }
 }
 
-const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
+export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
     const parsedRepo = repoUrlSchema.safeParse(req.body)
     if(!parsedRepo.success){
         res.status(400).json({details:z.treeifyError(parsedRepo.error)})
@@ -125,6 +130,50 @@ const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
     }
 }
 
-const getRepoById = async (req:Request,res:Response):Promise<void>=>{
-    const {repoId} = req.params
+export const getRepoById = async (req:Request,res:Response):Promise<void>=>{
+    const {repoId} = req.params as {repoId:string}
+    const {id} = req.user as {id:string}
+    if(!id){
+        res.status(401).json({error:"Unauthorized"})
+        return
+    }
+     const repo = await prisma.repository.findUnique({where:{id:repoId,userId:id}})
+     if(!repo){
+         res.status(404).json({error:`Repository ${repoId} not found.`})
+         return
+     }
+
+     res.status(200).json({repo})
+}
+
+export const getAllRepos = async (req:Request,res:Response):Promise<void>=>{
+    const {id} = req.user as {id:string}
+    if(!id){
+        res.status(401).json({error:"Unauthorized"})
+        return
+    }
+
+    const repos = await prisma.repository.findMany({where:{userId:id}})
+    res.status(200).json({repos})
+}
+
+export const deleteRepo = async (req:Request,res:Response):Promise<void>=>{
+    const {repoId} = req.params as {repoId:string}
+    const {id} = req.user as {id:string}
+    if(!id){
+        res.status(401).json({error:"Unauthorized"})
+        return
+    }
+
+    const repo = await prisma.repository.findUnique({where:{id:repoId,userId:id}})
+    if(!repo){
+        res.status(404).json({error:`Repository ${repoId} not found.`})
+        return
+    }
+
+    await deleteChunks(repoId)
+
+    await prisma.repository.delete({where:{id:repoId}})
+    await prisma.chat.deleteMany({where:{repoId}})
+    res.status(204).send(`Repository ${repo.fullName} (${repoId}) deleted successfully.`)
 }

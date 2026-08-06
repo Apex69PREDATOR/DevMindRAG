@@ -33,7 +33,7 @@ model Repository{
     chats Chat[]
     userId String
     user User @relation(fields: [userId], references: [id])
-
+   @@unique([fullName, userId])
 }
 
 model Chat{
