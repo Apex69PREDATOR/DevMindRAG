@@ -17,17 +17,13 @@ export interface AuthPayload {
 // }
 
 export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const cookieToken = req.cookies.token;
+  if (!cookieToken) {
     res.status(401).json({ error: "Unauthorized — no token provided" });
     return;
   }
-
-  const token = authHeader.split(" ")[1];
-
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET as string) as AuthPayload;
+    const payload = jwt.verify(cookieToken, process.env.JWT_SECRET as string) as AuthPayload;
     req.user = payload;
     next();
   } catch (err) {

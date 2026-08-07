@@ -8,17 +8,12 @@ import { embedCodeChunk } from "../services/embedder.service";
 
 const repoUrlSchema = z.object({
     repoUrl: z.url(),
-    pat: z.string().optional(),
 });
 
 
-const resyncRepoSchema = z.object({
-    pat: z.string().optional(),
-})
-
 export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
     const parsedRepo = repoUrlSchema.safeParse(req.body)
-    const {id} = req.user as {id:string}
+    const {id, accessToken} = req.user as {id:string, accessToken:string}
     if(!id){
         res.status(401).json({error:"Unauthorized"})
         return
@@ -28,7 +23,7 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
         return
     }
 
-    const {repoUrl, pat} = parsedRepo.data
+    const {repoUrl} = parsedRepo.data
     const {owner, repo} = parseOwnerAndRepo(repoUrl) // Validate the repo URL format
     const fullName = `${owner}/${repo}`
     const repoExists = await prisma.repository.findUnique({where:{fullName}})
@@ -44,7 +39,7 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
 
   res.status(200).json({message:`Ingestion of repository ${fullName} has started.`,id:repoRecord.id})
   try{
-  const {metaData, fileContent} = await fetchGithubRepo(repoUrl,pat);
+  const { fileContent} = await fetchGithubRepo(repoUrl,accessToken);
 
   const codeChunk = generateChunksFromFile(fileContent,repoRecord.id)
 
@@ -63,7 +58,7 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
   await storeChunks(embeddedChunk)
   await prisma.repository.update({
     where: { id: repoRecord.id },
-    data: { status: "ingested",chunksCount:embeddedChunk.length,isPrivate:pat?true:false, lastSyncedAt: new Date() },
+    data: { status: "ingested",chunksCount:embeddedChunk.length,isPrivate:accessToken?true:false, lastSyncedAt: new Date() },
   })
 }
 catch(err){
@@ -78,15 +73,21 @@ catch(err){
 
 export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
     const parsedRepo = repoUrlSchema.safeParse(req.body)
+    const {id, accessToken} = req.user as {id:string, accessToken:string}
+    if(!id){
+        res.status(401).json({error:"Unauthorized"})
+        return
+    }
+
     if(!parsedRepo.success){
         res.status(400).json({details:z.treeifyError(parsedRepo.error)})
         return
     }
 
-    const {repoUrl, pat} = parsedRepo.data
+    const {repoUrl} = parsedRepo.data
     const {owner, repo} = parseOwnerAndRepo(repoUrl)
     const fullName = `${owner}/${repo}`
-    const repoRecord = await prisma.repository.findUnique({where:{fullName}})
+    const repoRecord = await prisma.repository.findUnique({where:{fullName,userId:id}})
     if(!repoRecord){
         res.status(404).json({error:`Repository ${fullName} not found.`})
         return
@@ -98,7 +99,7 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
     });
 
     try{
-        const {metaData, fileContent} = await fetchGithubRepo(repoUrl,pat);
+        const {fileContent} = await fetchGithubRepo(repoUrl,accessToken);
 
         const codeChunk = generateChunksFromFile(fileContent,repoRecord.id)
 
@@ -117,7 +118,7 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
         await storeChunks(embeddedChunk)
         await prisma.repository.update({
             where: { id: repoRecord.id },
-            data: { status: "ingested", chunksCount:embeddedChunk.length,isPrivate:pat?true:false, lastSyncedAt: new Date() },
+            data: { status: "ingested", chunksCount:embeddedChunk.length,isPrivate:accessToken?true:false, lastSyncedAt: new Date() },
         })
     }
     catch(err){
