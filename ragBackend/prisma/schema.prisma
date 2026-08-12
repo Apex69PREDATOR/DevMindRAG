@@ -30,6 +30,8 @@ model Repository{
     lastSyncedAt DateTime?
     isPrivate Boolean @default(false)
     createdAt DateTime @default(now())
+    lastCommitAt DateTime?
+    isStale Boolean @default(false)
     chats Chat[]
     userId String
     user User @relation(fields: [userId], references: [id])

@@ -13,6 +13,7 @@ export interface RepoMetaData{
   description : string;
   fullname : string;
   isPrivate : boolean;
+  latestCommit : Date;
 }
 const BLOCKED_EXTENSIONS = [
   ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",  // images
@@ -127,13 +128,16 @@ const fetchFileContent = async (octokit: Octokit, repo: string, owner: string,pa
 };
 
 const fetchRepoMetaData  = async(ocktokit: Octokit, repo: string, owner: string):Promise<RepoMetaData>=>{
-     const { data } = await ocktokit.repos.get({repo, owner})
+     const [repoData, commit] = await Promise.all([ocktokit.repos.get({repo, owner}),ocktokit.repos.listCommits({repo, owner, per_page: 1})]);
+     const commits = commit.data;
+     const latestCommit = commits[0]?.commit?.committer?.date? new Date(commits[0]?.commit?.committer?.date) : new Date(repoData.data.updated_at)
      return {
-      name : data.name,
-      owner : data.owner.login,
-      description : data.description || "",
-      fullname : data.full_name,
-      isPrivate : data.private
+      name : repoData.data.name,
+      owner : repoData.data.owner.login,
+      description : repoData.data.description || "",
+      fullname : repoData.data.full_name,
+      isPrivate : repoData.data.private,
+      latestCommit
      }
 }
 
