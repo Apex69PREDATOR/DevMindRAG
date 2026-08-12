@@ -5,6 +5,8 @@ import { fetchGithubRepo,parseOwnerAndRepo } from "../services/github.service";
 import { storeChunks,deleteChunks } from "../services/quadrant.service";
 import { generateChunksFromFile } from "../services/chunker.service";
 import { embedCodeChunk } from "../services/embedder.service";
+import { checkAndUpdateStaleness } from "../services/staleness.service";
+import { validateRepoOwnership } from "./chat.controller";
 
 const repoUrlSchema = z.object({
     repoUrl: z.url(),
@@ -39,7 +41,7 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
 
   res.status(200).json({message:`Ingestion of repository ${fullName} has started.`,id:repoRecord.id})
   try{
-  const { fileContent} = await fetchGithubRepo(repoUrl,accessToken);
+  const { metaData,fileContent} = await fetchGithubRepo(repoUrl,accessToken);
 
   const codeChunk = generateChunksFromFile(fileContent,repoRecord.id)
 
@@ -58,7 +60,7 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
   await storeChunks(embeddedChunk)
   await prisma.repository.update({
     where: { id: repoRecord.id },
-    data: { status: "ingested",chunksCount:embeddedChunk.length,isPrivate:accessToken?true:false, lastSyncedAt: new Date() },
+    data: { status: "ingested",chunksCount:embeddedChunk.length,isPrivate:accessToken?true:false, lastSyncedAt: new Date(),lastCommitAt:metaData.latestCommit,isStale:false },
   })
 }
 catch(err){
@@ -177,4 +179,21 @@ export const deleteRepo = async (req:Request,res:Response):Promise<void>=>{
     await prisma.repository.delete({where:{id:repoId}})
     await prisma.chat.deleteMany({where:{repoId}})
     res.status(204).send(`Repository ${repo.fullName} (${repoId}) deleted successfully.`)
+}
+
+export const checkStaleness = async (req:Request,res:Response):Promise<void>=>{
+
+    const {id:userId,accessToken} = req.user as {id:string,accessToken:string};
+    const {repoId} = req.params as {repoId:string}
+
+    const verifiedRepo = await validateRepoOwnership(repoId,userId);
+
+    if(!verifiedRepo){
+        res.status(404).json({error:`Repository ${repoId} not found.`})
+        return
+    }
+
+    const stalenessInfo = await checkAndUpdateStaleness(repoId,accessToken);
+
+    res.status(200).json({...stalenessInfo,message:stalenessInfo.isStale?`Repository ${verifiedRepo.fullName} has new commits on github & is behind by ${stalenessInfo.behindBy}. Re-sync recommended.`:`Repository ${verifiedRepo.fullName} is up-to-date.`})
 }

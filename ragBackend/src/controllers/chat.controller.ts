@@ -10,7 +10,7 @@ const questionSchema = z.object({
   question: z.string().min(1, "Question is required"),
 });
 
-const validateRepoId = async (repoId: string,userId:string):Promise<{id:string,fullName:string,status:string} | null> => {
+export const validateRepoOwnership = async (repoId: string,userId:string):Promise<{id:string,fullName:string,status:string} | null> => {
   return await prisma.repository.findUnique({
     where: { id: repoId, userId: userId },
     select: {
@@ -28,7 +28,7 @@ export const askQuestion = async (req:Request,res:Response)=>{
       return res.status(400).json({message:"Invalid request", errors: z.treeifyError(validQuestion.error).errors});
     }
     const {repoId, question} = validQuestion.data;
-    const repo = await validateRepoId(repoId, id);
+    const repo = await validateRepoOwnership(repoId, id);
    
     if(repo==null){
       return res.status(404).json({message:"Repository not found"});
@@ -62,7 +62,7 @@ export const askQuestion = async (req:Request,res:Response)=>{
 export const getChatHistory = async (req:Request,res:Response)=>{
   const {id} = req.user as {id:string};
   const {repoId} = req.params as {repoId:string};
-  const repo = await validateRepoId(repoId, id);
+  const repo = await validateRepoOwnership(repoId, id);
 
   if(repo==null){
     return res.status(404).json({message:"Repository not found"});
@@ -90,7 +90,7 @@ export const deleteChatHistory = async (req:Request,res:Response)=>{
   const {id} = req.user as {id:string};
   const {repoId} = req.params as {repoId:string};
 
-  const repo = await validateRepoId(repoId, id);
+  const repo = await validateRepoOwnership(repoId, id);
 
   if(repo==null){
     return res.status(404).json({message:"Repository not found"});
