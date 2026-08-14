@@ -75,6 +75,7 @@ catch(err){
 
 export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
     const parsedRepo = repoUrlSchema.safeParse(req.body)
+    const {repoId} =  req.params as {repoId:string}
     const {id, accessToken} = req.user as {id:string, accessToken:string}
     if(!id){
         res.status(401).json({error:"Unauthorized"})
@@ -89,7 +90,7 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
     const {repoUrl} = parsedRepo.data
     const {owner, repo} = parseOwnerAndRepo(repoUrl)
     const fullName = `${owner}/${repo}`
-    const repoRecord = await prisma.repository.findUnique({where:{fullName,userId:id}})
+    const repoRecord = await prisma.repository.findUnique({where:{id:repoId,userId:id}})
     if(!repoRecord){
         res.status(404).json({error:`Repository ${fullName} not found.`})
         return
