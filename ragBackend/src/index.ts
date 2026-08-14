@@ -12,7 +12,6 @@ import passport from "./config/passport";
 import { ensureCollectionExists } from "./services/quadrant.service";
 import { handleError } from "./middlewares/errorhandler.middleware";
 import { validateEnvs } from "./utils/validate_env";
-import "express-async-errors";
 import helmet from "helmet";
 import morgan from "morgan";
 
