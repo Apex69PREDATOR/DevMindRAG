@@ -1,4 +1,4 @@
-import {Node, Parser}  from "web-tree-sitter";
+import  {Parser,Node,Language}  from "web-tree-sitter";
 import path from "path";
 import { RawFile } from "./github.service";
 export interface CodeChunk {
@@ -107,10 +107,12 @@ const extractName = (node:Node,source:string):string=>{
 }
 
 export const initParsers = async () =>{
-    await Parser.init();
+    await Parser.init({
+    locateFile: () => path.join(__dirname, "../wasm/web-tree-sitter.wasm")
+  });
     const wasmDir = path.join(__dirname, "../wasm");
 
-    const [JS,TS,Java,Py,C,CPP,Go,Rust,PHP] = await Promise.all([(Parser as any).Language.load(path.join(wasmDir,"tree-sitter-javascript.wasm")),(Parser as any).Language.load(path.join(wasmDir,"tree-sitter-typescript.wasm")),(Parser as any).Language.load(path.join(wasmDir,"tree-sitter-java.wasm")),(Parser as any).Language.load(path.join(wasmDir,"tree-sitter-python.wasm")),(Parser as any).Language.load(path.join(wasmDir,"tree-sitter-c.wasm")),(Parser as any).Language.load(path.join(wasmDir,"tree-sitter-cpp.wasm")),(Parser as any).Language.load(path.join(wasmDir,"tree-sitter-go.wasm")),(Parser as any).Language.load(path.join(wasmDir,"tree-sitter-rust.wasm")),(Parser as any).Language.load(path.join(wasmDir,"tree-sitter-php.wasm"))]);
+    const [JS,TS,Java,Py,C,CPP,Go,Rust,Php] = await Promise.all([Language.load(path.join(wasmDir,"tree-sitter-javascript.wasm")),Language.load(path.join(wasmDir,"tree-sitter-typescript.wasm")),Language.load(path.join(wasmDir,"tree-sitter-java.wasm")),Language.load(path.join(wasmDir,"tree-sitter-python.wasm")),Language.load(path.join(wasmDir,"tree-sitter-c.wasm")),Language.load(path.join(wasmDir,"tree-sitter-cpp.wasm")),Language.load(path.join(wasmDir,"tree-sitter-go.wasm")),Language.load(path.join(wasmDir,"tree-sitter-rust.wasm")),Language.load(path.join(wasmDir,"tree-sitter-php.wasm"))]);
 
     jsParser = new Parser();
     jsParser.setLanguage(JS);
@@ -129,7 +131,8 @@ export const initParsers = async () =>{
     rustParser = new Parser();
     rustParser.setLanguage(Rust);
     phpParser = new Parser();
-    phpParser.setLanguage(PHP);
+    phpParser.setLanguage(Php);
+
 }
 
 const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{

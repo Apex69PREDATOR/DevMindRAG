@@ -51,6 +51,8 @@ const start = async ()=>{
 
   await Promise.all([initParsers(),ensureCollectionExists()]);
   
+  console.log("Parsers initialized and Quadrant collection ensured successfully");
+  
    app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
    })

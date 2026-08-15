@@ -16,9 +16,14 @@ export interface SearchResults {
 
 
 export const ensureCollectionExists = async ():Promise<void>=>{
+
+     try{
      const collection = await quadrantClient.getCollection(COLLECTION_NAME)
 
-     if(!collection){
+     console.log(`Collection ${COLLECTION_NAME} already exists in Quadrant.`);
+     
+}catch (error:any) {
+    if(error instanceof Error && error.message.includes("Collection not found") || error?.status === 404){
         await quadrantClient.createCollection(COLLECTION_NAME,{ vectors :{
             size : VECTOR_DIMENSION,
             distance : "Cosine"
@@ -26,10 +31,10 @@ export const ensureCollectionExists = async ():Promise<void>=>{
 
         console.log(`Collection ${COLLECTION_NAME} created in Quadrant.`);
         return;
-     }
-
-     console.log(`Collection ${COLLECTION_NAME} already exists in Quadrant.`);
-     
+    }
+    console.error(`quadrant api error: ${error}`);
+    throw error;
+}
 }
 export const storeChunks = async (chunks : EmbeddedCodeChunk[])=>{
       const BATCH_SIZE = 100; // Number of chunks to insert in each batch
