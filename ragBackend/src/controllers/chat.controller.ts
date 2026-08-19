@@ -33,12 +33,13 @@ export const askQuestion = async (req:Request,res:Response)=>{
     if(repo==null){
       return res.status(404).json({message:"Repository not found"});
     }
-    if(repo.status !== "ready"){
+    if(repo.status !== "ingested"){
       return res.status(400).json({message:"Repository is not ready for questions"});
     }
 
     const queryVector = await embedText(validQuestion.data.question);
-
+    console.log(queryVector);
+    
     const searchResults = await queryChunks(queryVector, 5, repoId);
     
     if(searchResults.length==0){
@@ -68,7 +69,7 @@ export const getChatHistory = async (req:Request,res:Response)=>{
     return res.status(404).json({message:"Repository not found"});
   }
 
-  if(repo.status !== "ready"){
+  if(repo.status !== "ingested"){
     return res.status(400).json({message:"Repository is not ready for questions"});
   }
 
@@ -96,7 +97,7 @@ export const deleteChatHistory = async (req:Request,res:Response)=>{
     return res.status(404).json({message:"Repository not found"});
   }
 
-  if(repo.status !== "ready"){
+  if(repo.status !== "ingested"){
     return res.status(400).json({message:"Repository is not ready for questions"});
   }
 

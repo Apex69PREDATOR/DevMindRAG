@@ -5,7 +5,7 @@ dotenv.config();
 
 const quadrantClient =  new QdrantClient({
     url: process.env.QDRANT_URL,
-    apiKey: process.env.QDRANT_API_KEY
+    apiKey: process.env.QDRANT_API_KEY,
 })
 
 export default quadrantClient;

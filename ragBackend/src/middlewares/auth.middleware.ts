@@ -17,7 +17,13 @@ export interface AuthPayload {
 // }
 
 export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-  const cookieToken = req.cookies.token;
+  // const cookieToken = req.cookies.token; will use this if you are using cookie-parser middleware
+
+  const authHeader = req.headers.authorization;
+  const cookieToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;  //comment this line if you are using cookie-parser middleware
+  
+  
+
   if (!cookieToken) {
     res.status(401).json({ error: "Unauthorized — no token provided" });
     return;
@@ -27,6 +33,8 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
     req.user = payload;
     next();
   } catch (err) {
+    console.log("authMiddleware: token verification failed", err);
+    
     res.status(401).json({ error: "Unauthorized — invalid or expired token" });
   }
 };

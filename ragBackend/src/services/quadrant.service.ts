@@ -19,7 +19,7 @@ export const ensureCollectionExists = async ():Promise<void>=>{
 
      try{
      const collection = await quadrantClient.getCollection(COLLECTION_NAME)
-
+     await ensurePayloadIndex();
      console.log(`Collection ${COLLECTION_NAME} already exists in Quadrant.`);
      
 }catch (error:any) {
@@ -30,6 +30,8 @@ export const ensureCollectionExists = async ():Promise<void>=>{
         }});
 
         console.log(`Collection ${COLLECTION_NAME} created in Quadrant.`);
+
+          await ensurePayloadIndex();
         return;
     }
     console.error(`quadrant api error: ${error}`);
@@ -37,9 +39,14 @@ export const ensureCollectionExists = async ():Promise<void>=>{
 }
 }
 export const storeChunks = async (chunks : EmbeddedCodeChunk[])=>{
+    if(chunks.length === 0){
+        console.log("No chunks to store in Quadrant.");
+        return;
+    }
       const BATCH_SIZE = 100; // Number of chunks to insert in each batch
       for(let i=0;i<chunks.length;i+=BATCH_SIZE){
-        let batch = chunks.slice(i,BATCH_SIZE);
+        let batch = chunks.slice(i,i + BATCH_SIZE);
+        if(batch.length === 0) continue;
         let points = batch.map(({vector,chunk})=>({
             id : v4(),
             vector,
@@ -52,21 +59,23 @@ export const storeChunks = async (chunks : EmbeddedCodeChunk[])=>{
                 name: chunk.metadata.name,
                 language: chunk.metadata.language,
                 type: chunk.metadata.type,
-            }
+            },
             
         }));
-        await quadrantClient.upsert(COLLECTION_NAME, {points});
+        await quadrantClient.upsert(COLLECTION_NAME, {points,});
       }
 
       console.log(`Stored ${chunks.length} chunks in Quadrant collection ${COLLECTION_NAME}.`);
 }
 
 export const queryChunks = async (queryVector: number[], topK: number,repoId: string): Promise<SearchResults[]> => {
+    console.log("repoId",repoId);
+    
          const response = await quadrantClient.search(COLLECTION_NAME,{
              vector : queryVector,
              limit : topK,
              with_payload : true,
-             score_threshold : 0.7,
+             score_threshold : 0.3,
              filter :{
                 must : [
                     {
@@ -76,6 +85,9 @@ export const queryChunks = async (queryVector: number[], topK: number,repoId: st
                 ]
              }
          });
+
+         console.log("response",response);
+         
          return response.map(result=>({
             score : result.score,
             content : result.payload?.content as string,
@@ -103,3 +115,17 @@ export const deleteChunks = async (repoId:string):Promise<void>=>{
     console.log(`Deleted chunks for repoId: ${repoId}`);
 
 } 
+
+const ensurePayloadIndex  = async ():Promise<void>=>{
+    try{
+       await quadrantClient.createPayloadIndex(COLLECTION_NAME,{field_name:"repoId",field_schema:"keyword"});
+       console.log("repoId ensured as payload index");
+    }
+    catch(err:any){
+        if (err?.data?.status?.error?.includes("already exists")) {
+      console.log(`Payload index for repoId already exists`);
+      return;
+    }
+    throw err;
+    }
+}

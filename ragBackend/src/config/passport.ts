@@ -18,6 +18,7 @@ passport.use(
                 update: {
                     email: profile.emails?.[0]?.value ?? "",
                     avatarUrl: profile.photos?.[0]?.value,
+                    oAuth:true,
                 },
                 create: {
                     githubId: profile.id,
@@ -25,6 +26,7 @@ passport.use(
                     email: profile.emails?.[0]?.value ?? "",
                     avatarUrl: profile.photos?.[0]?.value,
                     provider: "github",
+                    oAuth:true,
                 },
             });
             return done(null, {accessToken, user});

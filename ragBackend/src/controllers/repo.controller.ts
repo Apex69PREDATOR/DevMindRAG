@@ -62,6 +62,9 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
     where: { id: repoRecord.id },
     data: { status: "ingested",chunksCount:embeddedChunk.length,isPrivate:accessToken?true:false, lastSyncedAt: new Date(),lastCommitAt:metaData.latestCommit,isStale:false },
   })
+
+  console.log("ingestion completed for repository ",fullName);
+  
 }
 catch(err){
     await prisma.repository.update({
