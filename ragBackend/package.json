@@ -11,6 +11,7 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
+    "nodemon": "^3.1.14",
     "openai": "^6.42.0",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
@@ -35,9 +36,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev": "nodemon --exec \"node --max-old-space-size=4096 -r ts-node/register src/index.ts\"",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node --max-old-space-size=4096 dist/index.js"
   },
   "keywords": [],
   "author": "",
@@ -54,7 +55,6 @@
     "@types/passport": "^1.0.17",
     "@types/passport-github2": "^1.2.9",
     "@types/uuid": "^10.0.0",
-    "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }

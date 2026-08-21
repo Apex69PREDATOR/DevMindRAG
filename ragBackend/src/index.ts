@@ -43,7 +43,18 @@ app.get("/health", (req, res) => {
 
 app.use(handleError);
 
+process.on("SIGTERM",()=>{
+  console.log("SIGTERM received, shutting down gracefully");
+  prisma.$disconnect();
+  process.exit(0);
+});
 
+
+process.on("SIGINT",()=>{
+  console.log("SIGINT received, shutting down gracefully");
+  prisma.$disconnect();
+  process.exit(0);
+  })
 
 const start = async ()=>{
 
@@ -64,19 +75,6 @@ const start = async ()=>{
     process.exit(1);
   }
 }
-
-process.on("SIGTERM",()=>{
-  console.log("SIGTERM received, shutting down gracefully");
-  prisma.$disconnect();
-  process.exit(0);
-});
-
-
-process.on("SIGINT",()=>{
-  console.log("SIGINT received, shutting down gracefully");
-  prisma.$disconnect();
-  process.exit(0);
-  })
 
 start();
 

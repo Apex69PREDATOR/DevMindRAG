@@ -43,29 +43,40 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
   try{
   const { metaData,fileContent} = await fetchGithubRepo(repoUrl,accessToken);
 
-  const codeChunk = generateChunksFromFile(fileContent,repoRecord.id)
+  //memory optimization
 
-  if(!codeChunk || codeChunk.length === 0) {
-    await prisma.repository.update({
-        where: { id: repoRecord.id },
-        data: { status: "failed" },
-    });
+  const BATCH_SIZE = 30; // Adjust this value based on your memory constraints
+  let total_chunks = 0;
+  
+  for(let i=0;i<fileContent.length;i+=BATCH_SIZE){
 
-    console.log(`No code chunks generated for repository ${fullName}. Marking as failed.`);
-    return;
+      const BATCH = fileContent.slice(i,i+BATCH_SIZE);
+      
+      const codeChunk = generateChunksFromFile(BATCH,repoRecord.id);
+      
+      if(!codeChunk || codeChunk.length === 0) 
+        continue;
+
+    const embeddedChunk = await embedCodeChunk(codeChunk);
+
+    total_chunks+=embedCodeChunk.length;
+
+    await Promise.all([storeChunks(embeddedChunk),prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}})]);
+
+        console.log(`📂 Processed files ${i + 1}–${Math.min(i + BATCH_SIZE, fileContent.length)} of ${fileContent.length} | Chunks so far: ${total_chunks}`);
+
+
+
   }
-
-  const embeddedChunk = await embedCodeChunk(codeChunk);
-
-  await storeChunks(embeddedChunk)
   await prisma.repository.update({
     where: { id: repoRecord.id },
-    data: { status: "ingested",chunksCount:embeddedChunk.length,isPrivate:accessToken?true:false, lastSyncedAt: new Date(),lastCommitAt:metaData.latestCommit,isStale:false },
+    data: { status: "ingested",chunksCount:total_chunks,isPrivate:accessToken?true:false, lastSyncedAt: new Date(),lastCommitAt:metaData.latestCommit,isStale:false },
   })
 
   console.log("ingestion completed for repository ",fullName);
   
-}
+  }
+
 catch(err){
     await prisma.repository.update({
         where: { id: repoRecord.id },

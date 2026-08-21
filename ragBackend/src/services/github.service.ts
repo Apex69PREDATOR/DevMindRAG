@@ -91,8 +91,10 @@ export const parseOwnerAndRepo = (repoUrl: string): { owner: string; repo: strin
   if (!match) {
     throw new Error("Invalid GitHub repository URL");
   }
-  const [, owner, repo] = match;
-  return { owner, repo };
+  const [ ,owner, repo] = match;
+  console.log("Parsed owner:", owner);
+  console.log("Parsed repo:", repo);
+  return { owner, repo: repo.replace(".git", '') };
 };
 
 const fetchFileContent = async (octokit: Octokit, repo: string, owner: string,path: string=""):Promise<RawFile[]> => {
