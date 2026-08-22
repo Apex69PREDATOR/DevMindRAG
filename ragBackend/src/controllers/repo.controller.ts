@@ -45,7 +45,7 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
 
   //memory optimization
 
-  const BATCH_SIZE = 30; // Adjust this value based on your memory constraints
+  const BATCH_SIZE = 20; // Adjust this value based on your memory constraints
   let total_chunks = 0;
   
   for(let i=0;i<fileContent.length;i+=BATCH_SIZE){
