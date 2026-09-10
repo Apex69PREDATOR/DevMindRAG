@@ -18,11 +18,11 @@ export interface CodeChunk {
 const LANGUAGE_CONFIG : Record<string,{getParser:()=>Parser | null,extractTypes:string[]}> = {
     javascript : {
         getParser : ()=> jsParser,
-        extractTypes  :["function_declaration","arrow_function","method_definition","class_declaration","export_statement"]
+        extractTypes  :["function_declaration","arrow_function","method_definition","class_declaration","export_statement","lexical_declaration","variable_declaration","expression_statement","new_expression"]
     },
     typescript : {
         getParser : ()=> tsParser,
-        extractTypes  :["function_declaration","arrow_function","method_definition","class_declaration","export_statement"]
+        extractTypes  :["function_declaration","arrow_function","method_definition","class_declaration","export_statement","lexical_declaration","variable_declaration","expression_statement","new_expression"]
     },
     python : {
         getParser : ()=> pyParser,
@@ -50,7 +50,7 @@ const LANGUAGE_CONFIG : Record<string,{getParser:()=>Parser | null,extractTypes:
     },
     php : {
         getParser : ()=>phpParser,
-        extractTypes : ["function_defination","class_definition","method_declaration"]
+        extractTypes : ["function_definition","class_definition","method_declaration"]
     }
     
 }

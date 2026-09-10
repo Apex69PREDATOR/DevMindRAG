@@ -16,7 +16,7 @@ router.post(   "/ingest",              authMiddleware, ingestRepo          );
 router.get(    "/",                    authMiddleware, getAllRepos          );
 router.get(    "/:repoId",             authMiddleware, getRepoById             );
 router.delete( "/:repoId",             authMiddleware, deleteRepo          );
-router.post(   "/:repoId/resync",      authMiddleware, resyncRepo          );
+router.put(   "/:repoId/resync",      authMiddleware, resyncRepo          );
 router.get(    "/:repoId/staleness",   authMiddleware, checkStaleness  );
 
 export default router;

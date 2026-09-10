@@ -38,7 +38,6 @@ export const askQuestion = async (req:Request,res:Response)=>{
     }
 
     const queryVector = await embedText(validQuestion.data.question);
-    console.log(queryVector);
     
     const searchResults = await queryChunks(queryVector, 5, repoId);
     

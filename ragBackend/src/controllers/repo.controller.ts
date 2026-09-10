@@ -88,55 +88,60 @@ catch(err){
 }
 
 export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
-    const parsedRepo = repoUrlSchema.safeParse(req.body)
     const {repoId} =  req.params as {repoId:string}
     const {id, accessToken} = req.user as {id:string, accessToken:string}
     if(!id){
         res.status(401).json({error:"Unauthorized"})
         return
     }
-
-    if(!parsedRepo.success){
-        res.status(400).json({details:z.treeifyError(parsedRepo.error)})
-        return
-    }
-
-    const {repoUrl} = parsedRepo.data
-    const {owner, repo} = parseOwnerAndRepo(repoUrl)
-    const fullName = `${owner}/${repo}`
     const repoRecord = await prisma.repository.findUnique({where:{id:repoId,userId:id}})
     if(!repoRecord){
-        res.status(404).json({error:`Repository ${fullName} not found.`})
+        res.status(404).json({error:`Repository id ${repoId} not found.`})
         return
     }
 
     await prisma.repository.update({
         where: { id: repoRecord.id },
-        data: { status: "ingesting", owner, name: repo, fullName },
+        data: { status: "ingesting" },
     });
 
+    res.status(200).json({message:`Re-sync of repository ${repoRecord.fullName} has started.`,id:repoRecord.id});
+
     try{
-        const {fileContent} = await fetchGithubRepo(repoUrl,accessToken);
 
-        const codeChunk = generateChunksFromFile(fileContent,repoRecord.id)
+          const repoUrl = `https://github.com/${repoRecord.fullName}`;
+        const {fileContent,metaData} = await fetchGithubRepo(repoUrl,accessToken);
 
-        if(!codeChunk || codeChunk.length === 0) {
-            await prisma.repository.update({
-                where: { id: repoRecord.id },
-                data: { status: "failed" },
-            });
+         const BATCH_SIZE = 20; // Adjust this value based on your memory constraints
+  let total_chunks = 0;
+  
+  for(let i=0;i<fileContent.length;i+=BATCH_SIZE){
 
-            console.log(`No code chunks generated for repository ${fullName}. Marking as failed.`);
-            return;
-        }
+      const BATCH = fileContent.slice(i,i+BATCH_SIZE);
+      
+      const codeChunk = generateChunksFromFile(BATCH,repoRecord.id);
+      
+      if(!codeChunk || codeChunk.length === 0) 
+        continue;
 
-        const embeddedChunk = await embedCodeChunk(codeChunk);
+    const embeddedChunk = await embedCodeChunk(codeChunk);
 
-        await storeChunks(embeddedChunk)
+    total_chunks+=embedCodeChunk.length;
+
+    await Promise.all([storeChunks(embeddedChunk),prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}})]);
+
+        console.log(`📂 Processed files ${i + 1}–${Math.min(i + BATCH_SIZE, fileContent.length)} of ${fileContent.length} | Chunks so far: ${total_chunks}`);
+
+
+
+  }
         await prisma.repository.update({
             where: { id: repoRecord.id },
-            data: { status: "ingested", chunksCount:embeddedChunk.length,isPrivate:accessToken?true:false, lastSyncedAt: new Date() },
+            data: { status: "ingested", chunksCount:total_chunks,isPrivate:accessToken?true:false, lastSyncedAt: new Date(), lastCommitAt:metaData.latestCommit,isStale:false },
         })
+
+        console.log("Re-sync completed for repository ",repoRecord.fullName);
+        
     }
     catch(err){
         await prisma.repository.update({
@@ -190,9 +195,8 @@ export const deleteRepo = async (req:Request,res:Response):Promise<void>=>{
     }
 
     await deleteChunks(repoId)
-
-    await prisma.repository.delete({where:{id:repoId}})
     await prisma.chat.deleteMany({where:{repoId}})
+    await prisma.repository.delete({where:{id:repoId}})
     res.status(204).send(`Repository ${repo.fullName} (${repoId}) deleted successfully.`)
 }
 

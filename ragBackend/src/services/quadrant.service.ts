@@ -69,7 +69,6 @@ export const storeChunks = async (chunks : EmbeddedCodeChunk[])=>{
 }
 
 export const queryChunks = async (queryVector: number[], topK: number,repoId: string): Promise<SearchResults[]> => {
-    console.log("repoId",repoId);
     
          const response = await quadrantClient.search(COLLECTION_NAME,{
              vector : queryVector,
@@ -86,7 +85,7 @@ export const queryChunks = async (queryVector: number[], topK: number,repoId: st
              }
          });
 
-         console.log("response",response);
+        //  console.log("response",response);
          
          return response.map(result=>({
             score : result.score,
