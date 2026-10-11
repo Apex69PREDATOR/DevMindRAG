@@ -117,7 +117,12 @@ let phpParser: Parser | null = null;
 const SMALL_CONTENT_SIZE = 30
 
 const extractName = (node:Node,source:string):string=>{
-    const [identifier,propIdentifier,fieldIdentifier]  = [node.children.find(child=> child.type === "identifier"), node.children.find(child=> child.type === "property_identifier"), node.children.find(child=> child.type === "field_identifier")];
+    const [identifier,propIdentifier,fieldIdentifier,variableDeclarator]  = [node.namedChildren.find(child=> child.type === "identifier"), node.namedChildren.find(child=> child.type === "property_identifier"), node.namedChildren.find(child=> child.type === "field_identifier"), node.namedChildren.find(child=> child.type === "variable_declarator")];
+    if(variableDeclarator){
+        
+        const id = variableDeclarator.namedChildren.find(c=>c.type==="identifier")
+        if (id) return source.substring(id.startIndex,id.endIndex).trim();
+    }
     if(identifier){
         const start = identifier.startIndex;
         const end = identifier.endIndex;
