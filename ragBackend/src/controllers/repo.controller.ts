@@ -107,7 +107,15 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
 
     res.status(200).json({message:`Re-sync of repository ${repoRecord.fullName} has started.`,id:repoRecord.id});
 
+    console.log(`Re-sync of repository ${repoRecord.fullName} has started.`);
+    
+
+
     try{
+
+    await deleteChunks(repoRecord.id); 
+
+    console.log(`Deleted chunks for repository ${repoRecord.fullName}`);
 
           const repoUrl = `https://github.com/${repoRecord.fullName}`;
         const {fileContent,metaData} = await fetchGithubRepo(repoUrl,accessToken);

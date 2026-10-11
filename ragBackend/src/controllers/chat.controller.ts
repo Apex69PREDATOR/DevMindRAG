@@ -39,7 +39,7 @@ export const askQuestion = async (req:Request,res:Response)=>{
 
     const queryVector = await embedText(validQuestion.data.question);
     
-    const searchResults = await queryChunks(queryVector, 5, repoId);
+    const searchResults = await queryChunks(queryVector, 20, repoId);
     
     if(searchResults.length==0){
       return res.status(404).json({message:"no valid code blocks found "})

@@ -201,8 +201,8 @@ const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
                     name:extractName(node,file.content),
                     type : getChunkType(node.type),
                     lines :{
-                        start : node.startIndex,
-                        end : node.endIndex
+                        start : node.startPosition.row+1,
+                        end : node.endPosition.row+1
                     }
                 }
             }
