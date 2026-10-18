@@ -119,12 +119,11 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
 
     await deleteChunks(repoRecord.id); 
 
-    console.log(`Deleted chunks for repository ${repoRecord.fullName}`);
 
           const repoUrl = `https://github.com/${repoRecord.fullName}`;
         const {fileContent,metaData} = await fetchGithubRepo(repoUrl,accessToken);
 
-         const BATCH_SIZE = 5; // Adjust this value based on your memory constraints
+         const BATCH_SIZE = 10; // Adjust this value based on your memory constraints
   let total_chunks = 0;
   
   for(let i=0;i<fileContent.length;i+=BATCH_SIZE){
@@ -136,17 +135,26 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
       if(!codeChunk || codeChunk.length === 0) 
         continue;
 
-    const embeddedChunk = await embedCodeChunk(codeChunk);
+      const EMBED_BATCH = 100;
+
+      for (let i=0;i<codeChunk.length;i+=EMBED_BATCH){
+         const embedded_batch_chunk = codeChunk.slice(i,i+EMBED_BATCH);
+
+         const embeddedChunks = await embedCodeChunk(embedded_batch_chunk);
+
+         await Promise.all([storeChunks(embeddedChunks),prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}})]);
+
+         if(global.gc) global.gc();
+
+      }
 
     total_chunks+=codeChunk.length;
 
-    await Promise.all([storeChunks(embeddedChunk),prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}})]);
 
         console.log(`📂 Processed files ${i + 1}–${Math.min(i + BATCH_SIZE, fileContent.length)} of ${fileContent.length} | Chunks so far: ${total_chunks}`);
 
-      if(global.gc) global.gc();
+         if(global.gc) global.gc();
 
-     await new Promise(resolve=>setTimeout(resolve,100));
 
   }
         await prisma.repository.update({

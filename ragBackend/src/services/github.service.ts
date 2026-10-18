@@ -97,6 +97,15 @@ export const parseOwnerAndRepo = (repoUrl: string): { owner: string; repo: strin
   return { owner, repo: repo.replace(".git", '') };
 };
 
+const fetchFileList =  async (octokit:Octokit,owner:string,repo:string):Promise<string[]>=>{
+  const {data} = await octokit.repos.get({owner,repo});
+  const default_branch = data.default_branch;
+
+ const  {data:tree} = await octokit.git.getTree({owner,repo,tree_sha:default_branch,recursive:'1'});
+
+ return tree.tree.filter(item=>(item.path && item.type==="blob" && isSupported(item.path))).map(item=>item.path as string);
+}
+
 const fetchFileContent = async (octokit: Octokit, repo: string, owner: string,path: string=""):Promise<RawFile[]> => {
 
   const {data} = await octokit.repos.getContent({owner,repo,path})
@@ -151,6 +160,7 @@ export const fetchGithubRepo = async (repoUrl: string, pat: string | undefined) 
   const { owner, repo } = parseOwnerAndRepo(repoUrl);
 
   const [metaData, fileContent] = await Promise.all([fetchRepoMetaData(octokit,repo,owner),fetchFileContent(octokit,repo,owner)]);
+
 
   return {
     metaData,

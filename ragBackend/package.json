@@ -36,7 +36,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --exec \"node --max-old-space-size=4096 --expose-gc -r ts-node/register src/index.ts\"",
+    "dev": "nodemon --exec \"node --max-old-space-size=5120 --expose-gc -r ts-node/register src/index.ts\"",
     "build": "tsc",
     "start": "node --max-old-space-size=4096 dist/index.js"
   },
