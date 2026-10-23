@@ -106,37 +106,31 @@ const fetchFileList =  async (octokit:Octokit,owner:string,repo:string):Promise<
  return tree.tree.filter(item=>(item.path && item.type==="blob" && isSupported(item.path))).map(item=>item.path as string);
 }
 
-const fetchFileContent = async (octokit: Octokit, repo: string, owner: string,path: string=""):Promise<RawFile[]> => {
+const fetchFileContent = async (octokit: Octokit, repo: string, owner: string,path: string=""):Promise<RawFile | null> => {
 
-  const {data} = await octokit.repos.getContent({owner,repo,path})
+  try{
+
+    
+     const {data:fileData} = await octokit.repos.getContent({owner,repo,path});
+
+     if( 'content' in fileData && fileData.content){
+        return {
+          path,
+          content : Buffer.from(fileData.content,"base64").toString('utf-8'),
+          language  : getLanguage(path)
+        }
+     }
+
+     return null;
+    }
+    catch{
+      return null;
+    }
+
   
-  if(!Array.isArray(data))
-    return []
-
-  const files : RawFile[] = []
-
-  for(const item of data){
-    if(item.type==="dir"){
-      const subFiles = await fetchFileContent(octokit,repo,owner,item.path)
-      files.push(...subFiles)
-    }
-    else if(item.type==="file" && isSupported(item.path)){
-      const {data: fileData} = await octokit.repos.getContent({owner,repo,path:item.path})
-
-      if("content" in fileData && fileData.content){
-        const content =  Buffer.from(fileData.content, 'base64').toString('utf-8');
-        files.push({
-          path : item.path,
-          content,
-          language : getLanguage(item.path)
-        })
-      }
-    }
   }
 
-  return files;
-
-};
+ 
 
 const fetchRepoMetaData  = async(ocktokit: Octokit, repo: string, owner: string):Promise<RepoMetaData>=>{
      const [repoData, commit] = await Promise.all([ocktokit.repos.get({repo, owner}),ocktokit.repos.listCommits({repo, owner, per_page: 1})]);
@@ -152,18 +146,28 @@ const fetchRepoMetaData  = async(ocktokit: Octokit, repo: string, owner: string)
      }
 }
 
-export const fetchGithubRepo = async (repoUrl: string, pat: string | undefined) => {
-  const octokit = new Octokit({
-    auth: pat,
-  });
+export const fetchAndProcessRepo = async(pat:string,repoUrl:string,batchSize:number,onBatch : (files:RawFile[])=>Promise<void>):Promise<RepoMetaData>=>{
+  const ocktokit = new Octokit({auth:pat});
+  const {owner,repo} = parseOwnerAndRepo(repoUrl);
+  const [metaData,filePaths] = await Promise.all([fetchRepoMetaData(ocktokit,repo,owner),fetchFileList(ocktokit,owner,repo)]);
+   
+  for (let i=0;i<filePaths.length;i+=batchSize){
 
-  const { owner, repo } = parseOwnerAndRepo(repoUrl);
+    const batch = filePaths.slice(i,i+batchSize);
 
-  const [metaData, fileContent] = await Promise.all([fetchRepoMetaData(octokit,repo,owner),fetchFileContent(octokit,repo,owner)]);
+    const filesWithContent = await Promise.all(batch.map(path=>(fetchFileContent(ocktokit,repo,owner,path))));
 
+    const validFiles = filesWithContent.filter((f):f is RawFile=>f!==null);
 
-  return {
-    metaData,
-    fileContent
-  };
-};
+    await onBatch(validFiles);
+    
+    console.log(`📂 Fetched files ${i + 1}–${Math.min(i + batchSize, filePaths.length)} of ${filePaths.length}`);
+
+    if (global.gc) global.gc();
+
+  }
+
+  return metaData;
+  
+
+}

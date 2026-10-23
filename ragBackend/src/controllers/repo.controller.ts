@@ -1,17 +1,18 @@
 import { Response, Request } from "express";
 import {z} from "zod";
 import prisma from "../config/prisma";
-import { fetchGithubRepo,parseOwnerAndRepo } from "../services/github.service";
+import { fetchAndProcessRepo,parseOwnerAndRepo } from "../services/github.service";
 import { storeChunks,deleteChunks } from "../services/quadrant.service";
 import { generateChunksFromFile } from "../services/chunker.service";
 import { embedCodeChunk } from "../services/embedder.service";
 import { checkAndUpdateStaleness } from "../services/staleness.service";
 import { validateRepoOwnership } from "./chat.controller";
-import { resolve } from "dns";
 
 const repoUrlSchema = z.object({
     repoUrl: z.url(),
 });
+
+const BATCH_SIZE = 10;
 
 
 export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
@@ -42,42 +43,10 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
 
   res.status(200).json({message:`Ingestion of repository ${fullName} has started.`,id:repoRecord.id})
   try{
-  const { metaData,fileContent} = await fetchGithubRepo(repoUrl,accessToken);
-
-  //memory optimization
-
-  const BATCH_SIZE = 10; // Adjust this value based on your memory constraints
-  let total_chunks = 0;
-  
-  for(let i=0;i<fileContent.length;i+=BATCH_SIZE){
-
-      const BATCH = fileContent.slice(i,i+BATCH_SIZE);
-      
-      const codeChunk = generateChunksFromFile(BATCH,repoRecord.id);
-      
-      if(!codeChunk || codeChunk.length === 0) 
-        continue;
-
-    const embeddedChunk = await embedCodeChunk(codeChunk);
-
-    total_chunks+=codeChunk.length;
-
-    await Promise.all([storeChunks(embeddedChunk),prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}})]);
-
-        console.log(`📂 Processed files ${i + 1}–${Math.min(i + BATCH_SIZE, fileContent.length)} of ${fileContent.length} | Chunks so far: ${total_chunks}`);
-  
-        if(global.gc) global.gc();
-
-        await new Promise(resolve=>setTimeout(resolve,100));
-
-
-  }
-  await prisma.repository.update({
-    where: { id: repoRecord.id },
-    data: { status: "ingested",chunksCount:total_chunks,isPrivate:accessToken?true:false, lastSyncedAt: new Date(),lastCommitAt:metaData.latestCommit,isStale:false },
-  })
-
-  console.log("ingestion completed for repository ",fullName);
+      const metaData = await fetchAndProcessRepo(accessToken,repoUrl,BATCH_SIZE,async (batchFiles)=>{
+         const chunks =  generateChunksFromFile(batchFiles,repoRecord.id);
+         const embeddedChunk = await embedCodeChunk(chunks || []);
+      })
   
   }
 
@@ -121,48 +90,6 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
 
 
           const repoUrl = `https://github.com/${repoRecord.fullName}`;
-        const {fileContent,metaData} = await fetchGithubRepo(repoUrl,accessToken);
-
-         const BATCH_SIZE = 10; // Adjust this value based on your memory constraints
-  let total_chunks = 0;
-  
-  for(let i=0;i<fileContent.length;i+=BATCH_SIZE){
-
-      const BATCH = fileContent.slice(i,i+BATCH_SIZE);
-      
-      const codeChunk = generateChunksFromFile(BATCH,repoRecord.id);
-      
-      if(!codeChunk || codeChunk.length === 0) 
-        continue;
-
-      const EMBED_BATCH = 100;
-
-      for (let i=0;i<codeChunk.length;i+=EMBED_BATCH){
-         const embedded_batch_chunk = codeChunk.slice(i,i+EMBED_BATCH);
-
-         const embeddedChunks = await embedCodeChunk(embedded_batch_chunk);
-
-         await Promise.all([storeChunks(embeddedChunks),prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}})]);
-
-         if(global.gc) global.gc();
-
-      }
-
-    total_chunks+=codeChunk.length;
-
-
-        console.log(`📂 Processed files ${i + 1}–${Math.min(i + BATCH_SIZE, fileContent.length)} of ${fileContent.length} | Chunks so far: ${total_chunks}`);
-
-         if(global.gc) global.gc();
-
-
-  }
-        await prisma.repository.update({
-            where: { id: repoRecord.id },
-            data: { status: "ingested", chunksCount:total_chunks,isPrivate:accessToken?true:false, lastSyncedAt: new Date(), lastCommitAt:metaData.latestCommit,isStale:false },
-        })
-
-        console.log("Re-sync completed for repository ",repoRecord.fullName);
         
     }
     catch(err){
