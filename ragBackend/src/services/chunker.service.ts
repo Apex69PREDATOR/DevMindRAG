@@ -177,8 +177,8 @@ export const initParsers = async () =>{
     phpParser.setLanguage(Php);
 
 }
-const MAX_PARSE_SIZE = 100 * 1024;
-const SEGMENT_OVERLAP = 500;
+const MAX_PARSE_SIZE = 50 * 1024;
+// const SEGMENT_OVERLAP = 100;
 
 const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
     let parser : Parser | null = null;
@@ -207,8 +207,24 @@ const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
   }
 
   else{
+    console.log(`File ${file.path} is too large to parse, splitting into segments...`);
+    
      let segment_start =0;
-     
+     let segment_end = Math.min(segment_start + MAX_PARSE_SIZE,file.content.length);
+
+     while(segment_start < file.content.length){
+       const segment = file.content.slice(segment_start,segment_end);
+       const tree = parser.parse(segment);
+
+       walkthetree(tree?.rootNode || null,file,extractTypes,chunks,repoId);
+
+       tree?.delete();
+
+       segment_start = segment_end;
+       segment_end = Math.min(segment_start + MAX_PARSE_SIZE,file.content.length);
+     }
+
+     return chunks;
   }
 
 
