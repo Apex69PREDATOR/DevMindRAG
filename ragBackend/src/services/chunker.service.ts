@@ -18,11 +18,11 @@ export interface CodeChunk {
 const LANGUAGE_CONFIG : Record<string,{getParser:()=>Parser | null,extractTypes:string[]}> = {
     javascript : {
         getParser : ()=> jsParser,
-        extractTypes  :["function_declaration","arrow_function","method_definition","class_declaration","export_statement","lexical_declaration","variable_declaration","expression_statement","new_expression"]
+        extractTypes  :["function_declaration","arrow_function","method_definition","class_declaration"]
     },
     typescript : {
         getParser : ()=> tsParser,
-        extractTypes  :["function_declaration","arrow_function","method_definition","class_declaration","export_statement","lexical_declaration","variable_declaration","expression_statement","new_expression"]
+        extractTypes  :["function_declaration","arrow_function","method_definition","class_declaration"]
     },
     python : {
         getParser : ()=> pyParser,
@@ -30,7 +30,11 @@ const LANGUAGE_CONFIG : Record<string,{getParser:()=>Parser | null,extractTypes:
     },
     java : {
         getParser : ()=> javaParser,
-        extractTypes  :["function_definition","class_definition","method_declaration","constructor_declaration","interface_declaration"]
+        extractTypes  :["class_declaration",
+    "method_declaration",
+    "constructor_declaration",
+    "interface_declaration",
+    "enum_declaration",]
     },
     c : {
         getParser : ()=> cParser,
@@ -50,7 +54,9 @@ const LANGUAGE_CONFIG : Record<string,{getParser:()=>Parser | null,extractTypes:
     },
     php : {
         getParser : ()=>phpParser,
-        extractTypes : ["function_definition","class_definition","method_declaration"]
+        extractTypes : [ "function_definition",
+    "class_declaration", 
+    "method_declaration",]
     }
     
 }
@@ -171,11 +177,14 @@ export const initParsers = async () =>{
     phpParser.setLanguage(Php);
 
 }
+const MAX_PARSE_SIZE = 100 * 1024;
+const SEGMENT_OVERLAP = 500;
 
 const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
     let parser : Parser | null = null;
     let extractTypes : string[] = []
-    let chunk: CodeChunk
+
+    const chunks : CodeChunk[] = []
 
     const ParserandNodeType = LANGUAGE_CONFIG[file.language]
 
@@ -185,19 +194,39 @@ const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
 
     if(!parser) return false;
 
-    const tree = parser.parse(file.content);
-    const chunks: CodeChunk[] =  [];
+     if (file.content.length < MAX_PARSE_SIZE) {
+     const tree = parser.parse(file.content);
 
-    const walkthetree = (node:Node | null)=>{
+    
+
+    walkthetree(tree?.rootNode || null,file,extractTypes,chunks,repoId);
+    
+    tree?.delete();
+
+    return chunks;
+  }
+
+  else{
+     let segment_start =0;
+     
+  }
+
+
+}
+
+const walkthetree = (node:Node | null,file:RawFile, extractTypes:string[],chunks: CodeChunk[],repoId:string)=>{
         if(!node) return
+
         const content = file.content.slice(node.startIndex,node.endIndex)
         const charCount: number = content.length
         if(charCount<SMALL_CONTENT_SIZE){   //don't take small unecessary code blocks
-           for(const child of node.children) walkthetree(child)
+           for(const child of node.children) walkthetree(child,file,extractTypes,chunks,repoId);
            return
         } 
+
+
         if(extractTypes.includes(node.type)){
-             chunk = {
+              chunks.push( {
                 content,
                 metadata : {
                     repoId,
@@ -210,22 +239,16 @@ const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
                         end : node.endPosition.row+1
                     }
                 }
-            }
-            chunks.push(chunk)
+            })
         }
 
         for(let item of node.children)
         {
-            walkthetree(item);
+            walkthetree(item,file,extractTypes,chunks,repoId);
         }
+
+        return chunks;
     }
-
-    walkthetree(tree?.rootNode || null)
-    
-
-    return chunks;
-
-}
 
 const chunkMarkdownFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
     let lines = file.content.split("\n");
@@ -304,9 +327,13 @@ export const generateChunksFromFile = (files:RawFile[],repoId:string):CodeChunk[
              
             chunks.push(...processedChunks);}
     }
+
+    file.content = ''; 
 });
 
   console.log(`generated ${chunks.length} chunks for repo ${repoId} consisting ${files.length} files`);
+
+
 
     return chunks.length > 0 ? chunks : null;
 }

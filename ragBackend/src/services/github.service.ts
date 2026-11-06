@@ -85,6 +85,10 @@ const getLanguage=(filePath:string):string=>{
       return "unknown";
   }
 }
+
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB in bytes
+
+
 export const parseOwnerAndRepo = (repoUrl: string): { owner: string; repo: string } => {
   const regex = /github\.com[:\/]([^\/]+)\/([^\/]+)(?:\.git)?/;
   const match = repoUrl.match(regex);
@@ -103,7 +107,17 @@ const fetchFileList =  async (octokit:Octokit,owner:string,repo:string):Promise<
 
  const  {data:tree} = await octokit.git.getTree({owner,repo,tree_sha:default_branch,recursive:'1'});
 
- return tree.tree.filter(item=>(item.path && item.type==="blob" && isSupported(item.path))).map(item=>item.path as string);
+ return tree.tree
+  .filter(item => {
+    if (!item.path || item.type !== "blob") return false;
+    if (!isSupported(item.path)) return false;
+    if (item.size && item.size > MAX_FILE_SIZE) {
+      console.warn(`⚠️  Skipping oversized file: ${item.path} (${(item.size / 1024).toFixed(1)}KB)`);
+      return false;
+    }
+    return true;
+  })
+  .map(item => item.path as string);
 }
 
 const fetchFileContent = async (octokit: Octokit, repo: string, owner: string,path: string=""):Promise<RawFile | null> => {

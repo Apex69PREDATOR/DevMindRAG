@@ -43,10 +43,34 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
 
   res.status(200).json({message:`Ingestion of repository ${fullName} has started.`,id:repoRecord.id})
   try{
+
+     let total_chunks = 0;
+     
       const metaData = await fetchAndProcessRepo(accessToken,repoUrl,BATCH_SIZE,async (batchFiles)=>{
+         
          const chunks =  generateChunksFromFile(batchFiles,repoRecord.id);
-         const embeddedChunk = await embedCodeChunk(chunks || []);
+         if(!chunks || chunks.length<1)
+            return
+         
+         const embeddedChunk = await embedCodeChunk(chunks);
+         await storeChunks(embeddedChunk);
+         total_chunks+=chunks.length;
+
+         await prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}});
+
+         if (global.gc) global.gc(); 
       })
+
+      await prisma.repository.update({where:{id:repoRecord.id},data:{
+        status:"ingested",
+        isPrivate:metaData.isPrivate,
+        isStale:false,
+        lastSyncedAt: new Date(),
+        lastCommitAt: metaData.latestCommit
+      }
+      })
+
+      console.log(`✅ Ingestion complete for ${fullName}`);
   
   }
 
@@ -87,9 +111,41 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
     try{
 
     await deleteChunks(repoRecord.id); 
-
-
           const repoUrl = `https://github.com/${repoRecord.fullName}`;
+          let total_chunks = 0;
+     
+      const metaData = await fetchAndProcessRepo(accessToken,repoUrl,BATCH_SIZE,async (batchFiles) => {
+  const chunks = generateChunksFromFile(batchFiles, repoRecord.id);
+  if (!chunks || chunks.length < 1) return;
+
+  const EMBED_BATCH = 25; // small sub-batches
+  for (let j = 0; j < chunks.length; j += EMBED_BATCH) {
+    const subBatch = chunks.slice(j, j + EMBED_BATCH);
+    const embedded = await embedCodeChunk(subBatch);
+    await storeChunks(embedded);
+    total_chunks += subBatch.length;
+    if (global.gc) global.gc();
+  }
+
+  // Clear chunks array after processing
+  chunks.length = 0;
+
+  await prisma.repository.update({
+    where: { id: repoRecord.id },
+    data:  { chunksCount: total_chunks }
+  });
+})
+
+      await prisma.repository.update({where:{id:repoRecord.id},data:{
+        status:"ingested",
+        isPrivate:metaData.isPrivate,
+        isStale:false,
+        lastSyncedAt: new Date(),
+        lastCommitAt: metaData.latestCommit
+      }
+      })
+
+      console.log(`✅ Ingestion complete for ${repoRecord.fullName}`);
         
     }
     catch(err){
