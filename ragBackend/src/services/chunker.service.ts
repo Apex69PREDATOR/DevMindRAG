@@ -178,7 +178,7 @@ export const initParsers = async () =>{
 
 }
 const MAX_PARSE_SIZE = 50 * 1024;
-// const SEGMENT_OVERLAP = 100;
+const SEGMENT_OVERLAP = 200;
 
 const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
     let parser : Parser | null = null;
@@ -209,20 +209,24 @@ const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
   else{
     console.log(`File ${file.path} is too large to parse, splitting into segments...`);
     
-     let segment_start =0;
-     let segment_end = Math.min(segment_start + MAX_PARSE_SIZE,file.content.length);
+     let segmentStart =0;
+     let segmentIndex = 0;
 
-     while(segment_start < file.content.length){
-       const segment = file.content.slice(segment_start,segment_end);
-       const tree = parser.parse(segment);
+     while (segmentStart < file.content.length) {
+    const segmentEnd = Math.min(segmentStart + MAX_PARSE_SIZE, file.content.length);
+    const segment = file.content.slice(segmentStart, segmentEnd);
 
-       walkthetree(tree?.rootNode || null,file,extractTypes,chunks,repoId);
+    try {
+      const tree = parser.parse(segment);
+      walkthetree(tree?.rootNode || null, { ...file, content: segment }, extractTypes, chunks, repoId);
+      tree?.delete();
 
-       tree?.delete();
+    } catch {
+      console.warn(`⚠️  Failed to parse segment ${segmentIndex} of ${file.path}`);
+    }
 
-       segment_start = segment_end;
-       segment_end = Math.min(segment_start + MAX_PARSE_SIZE,file.content.length);
-     }
+    segmentStart = segmentEnd - SEGMENT_OVERLAP;
+  }
 
      return chunks;
   }
