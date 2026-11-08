@@ -218,7 +218,7 @@ const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
 
     try {
       const tree = parser.parse(segment);
-      walkthetree(tree?.rootNode || null, { ...file, content: segment }, extractTypes, chunks, repoId);
+      walkthetree(tree?.rootNode || null, { ...file, content: segment }, extractTypes, chunks, repoId, segmentStart);
       tree?.delete();
 
     } catch {
@@ -235,7 +235,7 @@ const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
 
 }
 
-const walkthetree = (node:Node | null,file:RawFile, extractTypes:string[],chunks: CodeChunk[],repoId:string)=>{
+const walkthetree = (node:Node | null,file:RawFile, extractTypes:string[],chunks: CodeChunk[],repoId:string,lineOffset:number=0)=>{
         if(!node) return
 
         const content = file.content.slice(node.startIndex,node.endIndex)
@@ -256,8 +256,8 @@ const walkthetree = (node:Node | null,file:RawFile, extractTypes:string[],chunks
                     name:extractName(node,file.content),
                     type : getChunkType(node.type),
                     lines :{
-                        start : node.startPosition.row+1,
-                        end : node.endPosition.row+1
+                        start : node.startPosition.row+1 + lineOffset,
+                        end : node.endPosition.row+1 + lineOffset
                     }
                 }
             })

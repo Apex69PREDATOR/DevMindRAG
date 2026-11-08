@@ -74,7 +74,7 @@ export const queryChunks = async (queryVector: number[], topK: number,repoId: st
              vector : queryVector,
              limit : topK,
              with_payload : true,
-             score_threshold : 0.3,
+             score_threshold : 0.24,
              filter :{
                 must : [
                     {
