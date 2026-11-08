@@ -51,10 +51,14 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
          const chunks =  generateChunksFromFile(batchFiles,repoRecord.id);
          if(!chunks || chunks.length<1)
             return
-         
-         const embeddedChunk = await embedCodeChunk(chunks);
-         await storeChunks(embeddedChunk);
-         total_chunks+=chunks.length;
+         const EMBED_BATCH = 25; // small sub-batches
+        for (let j = 0; j < chunks.length; j += EMBED_BATCH) {
+    const subBatch = chunks.slice(j, j + EMBED_BATCH);
+    const embedded = await embedCodeChunk(subBatch);
+    await storeChunks(embedded);
+    total_chunks += subBatch.length;
+    if (global.gc) global.gc();
+  }
 
          await prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}});
 

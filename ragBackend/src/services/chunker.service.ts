@@ -226,6 +226,7 @@ const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
     }
 
     segmentStart = segmentEnd - SEGMENT_OVERLAP;
+    segmentIndex++;
   }
 
      return chunks;
