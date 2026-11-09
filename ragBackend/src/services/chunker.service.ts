@@ -1,6 +1,7 @@
 import  {Parser,Node,Language}  from "web-tree-sitter";
 import path from "path";
 import { RawFile } from "./github.service";
+import { de } from "zod/v4/locales";
 export interface CodeChunk {
     content : string;
     metadata : {
@@ -96,16 +97,33 @@ const split_large_chunks = (chunk:CodeChunk):CodeChunk[]=>{
 const getChunkType = (nodeType:string):string=>{
     switch(nodeType){
         case "function_declaration":
-            case "arrow_function":
-                return "function";
-            case "method_definition":
-                return "method";
-            case "class_declaration":
-                return "class";
-            case "export_statement":
-                return "export";
-            default:
-                return "block";
+case "arrow_function":
+case "function_definition":
+case "function_item":
+  return "function";
+case "method_definition":
+case "method_declaration":
+  return "method";
+case "class_declaration":
+case "class_definition":
+case "class_specifier":
+  return "class";
+case "struct_specifier":
+case "struct_item":
+  return "struct";
+case "union_specifier":
+  return "union";
+case "interface_declaration":
+case "trait_item":
+  return "interface";
+case "enum_declaration":
+case "enum_item":
+  return "enum";
+case "export_statement":
+  return "export";
+
+  default:
+    return nodeType;
     }
 
 }

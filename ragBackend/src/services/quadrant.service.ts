@@ -117,12 +117,12 @@ export const deleteChunks = async (repoId:string):Promise<void>=>{
 
 const ensurePayloadIndex  = async ():Promise<void>=>{
     try{
-       await quadrantClient.createPayloadIndex(COLLECTION_NAME,{field_name:"repoId",field_schema:"keyword"});
-       console.log("repoId ensured as payload index");
+       await Promise.all([ quadrantClient.createPayloadIndex(COLLECTION_NAME,{field_name:"repoId",field_schema:"keyword",wait:true}),quadrantClient.createPayloadIndex(COLLECTION_NAME,{field_name:"file",field_schema:"keyword",wait:true})]);
+       console.log("repoId and file ensured as payload index");
     }
     catch(err:any){
         if (err?.data?.status?.error?.includes("already exists")) {
-      console.log(`Payload index for repoId already exists`);
+      console.log(`Payload index for repoId and file already exists`);
       return;
     }
     throw err;
