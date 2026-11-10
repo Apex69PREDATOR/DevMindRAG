@@ -85,6 +85,8 @@ const split_large_chunks = (chunk:CodeChunk):CodeChunk[]=>{
             }
         });
 
+        if(end >= n) break;
+
         partIndex++;
         start = end - SPLIT_OVERLAP;
     }
@@ -235,12 +237,15 @@ const chunkCodeFile = (file:RawFile,repoId:string):CodeChunk[] | false=>{
 
     try {
       const tree = parser.parse(segment);
-      walkthetree(tree?.rootNode || null, { ...file, content: segment }, extractTypes, chunks, repoId, segmentStart);
+      const lineOffset = file.content.slice(0, segmentStart).split("\n").length - 1; // Calculate line offset for the current segment
+      walkthetree(tree?.rootNode || null, { ...file, content: segment }, extractTypes, chunks, repoId, lineOffset);
       tree?.delete();
 
     } catch {
       console.warn(`⚠️  Failed to parse segment ${segmentIndex} of ${file.path}`);
     }
+
+    if(segmentEnd === file.content.length) break; // Exit if we've reached the end of the file
 
     segmentStart = segmentEnd - SEGMENT_OVERLAP;
     segmentIndex++;
@@ -282,7 +287,7 @@ const walkthetree = (node:Node | null,file:RawFile, extractTypes:string[],chunks
 
         for(let item of node.children)
         {
-            walkthetree(item,file,extractTypes,chunks,repoId);
+            walkthetree(item,file,extractTypes,chunks,repoId,lineOffset);
         }
 
         return chunks;

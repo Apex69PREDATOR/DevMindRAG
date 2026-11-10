@@ -22,7 +22,10 @@ const BLOCKED_EXTENSIONS = [
   ".lock",                                                     // lockfiles
   ".exe", ".bin", ".dll", ".so",                              // executables/binaries
   ".zip", ".tar", ".gz",                                      // archives
-  ".pdf", ".docx",                                            // documents
+  ".pdf", ".docx",
+  ".mp4", ".mov", ".webm", ".mp3", ".wav", ".ogg",
+".avif", ".bmp", ".tiff", ".otf", ".jar", ".7z", ".rar",
+".snap", ".min.js", ".min.css",                                            // documents
 ];
 const BLOCKED_PATHS = [
   "node_modules/",
