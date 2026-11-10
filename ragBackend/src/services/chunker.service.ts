@@ -1,7 +1,6 @@
 import  {Parser,Node,Language}  from "web-tree-sitter";
 import path from "path";
 import { RawFile } from "./github.service";
-import { de } from "zod/v4/locales";
 export interface CodeChunk {
     content : string;
     metadata : {
