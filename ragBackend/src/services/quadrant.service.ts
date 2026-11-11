@@ -43,8 +43,11 @@ export const storeChunks = async (chunks : EmbeddedCodeChunk[])=>{
         console.log("No chunks to store in Quadrant.");
         return;
     }
-      const BATCH_SIZE = 100; // Number of chunks to insert in each batch
+      const BATCH_SIZE = 200; // Number of chunks to insert in each batch
       for(let i=0;i<chunks.length;i+=BATCH_SIZE){
+
+        console.log(`Storing chunks ${i+1} to ${Math.min(i+BATCH_SIZE,chunks.length)} in Quadrant collection ${COLLECTION_NAME}...`);
+        
         let batch = chunks.slice(i,i + BATCH_SIZE);
         if(batch.length === 0) continue;
         let points = batch.map(({vector,chunk})=>({
