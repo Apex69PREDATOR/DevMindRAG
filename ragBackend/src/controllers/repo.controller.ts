@@ -122,7 +122,7 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
   const chunks = generateChunksFromFile(batchFiles, repoRecord.id);
   if (!chunks || chunks.length < 1) return;
 
-  const EMBED_BATCH = 40; // small sub-batches
+  const EMBED_BATCH = 25; // small sub-batches
   for (let j = 0; j < chunks.length; j += EMBED_BATCH) {
     const subBatch = chunks.slice(j, j + EMBED_BATCH);
     const embedded = await embedCodeChunk(subBatch);

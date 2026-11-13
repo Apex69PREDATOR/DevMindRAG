@@ -141,31 +141,66 @@ let phpParser: Parser | null = null;
 
 const SMALL_CONTENT_SIZE = 30
 
-const extractName = (node:Node,source:string):string=>{
-    const [identifier,propIdentifier,fieldIdentifier,variableDeclarator]  = [node.namedChildren.find(child=> child.type === "identifier"), node.namedChildren.find(child=> child.type === "property_identifier"), node.namedChildren.find(child=> child.type === "field_identifier"), node.namedChildren.find(child=> child.type === "variable_declarator")];
-    if(variableDeclarator){
-        
-        const id = variableDeclarator.namedChildren.find(c=>c.type==="identifier")
-        if (id) return source.substring(id.startIndex,id.endIndex).trim();
+function textOf(node: Node | null, source: string): string {
+    return node ? source.substring(node.startIndex, node.endIndex).trim() : "";
+}
+
+const extractName = (node: Node | null, source: string): string => {
+    if (!node) return "anonymous";
+
+    const own = node.childForFieldName("name"); //node's own name field which includes the name of the function, class, etc.
+    if (own) return textOf(own, source);
+
+    // Python: decorated_definition wraps the real def/class
+  const inner = node.childForFieldName("definition");
+  if (inner) return extractName(inner, source);
+
+
+   // C/C++: function_definition wraps the declarator
+  let decl = node.childForFieldName("declarator");
+  
+  while (decl && decl.childForFieldName("declarator")) 
+    decl = decl.childForFieldName("declarator");
+
+    if (decl) return textOf(decl, source).slice(0, 50); // Limit to 50 characters
+
+    // Anonymous functions or classes might not have a name field, so we can look for the parent node's name if it exists
+    const parent = node.parent;
+
+    if (parent) {
+        switch (parent.type) {
+            case "variable_declarator":
+                return textOf(parent.childForFieldName("name") || parent, source).slice(0, 50);
+            case "pair":
+                return textOf(parent.childForFieldName("key") || parent, source).slice(0, 50);
+                case "assignment_expression":
+                return textOf(parent.childForFieldName("left") || parent, source).slice(0, 50);
+            case "export_statement":
+                return "default export";
+            case "field_definition":
+            case "public_field_definition":
+               return (
+          textOf(parent.childForFieldName("name") ?? parent.childForFieldName("property"), source) ||
+          "anonymous"
+        );
+         case "arguments": {                    // app.get("/users", async (req, res) => {})
+        const call = parent.parent;
+        if (call?.type === "call_expression") {
+          const callee = textOf(call.childForFieldName("function"), source);
+          const first = parent.namedChildren[0];
+          const label =
+            first && (first.type === "string" || first.type === "template_string")
+              ? ` ${textOf(first, source)}`
+              : "";
+          return `${callee}${label} callback`.slice(0, 80);
+        }
+        break;
+        }
     }
-    if(identifier){
-        const start = identifier.startIndex;
-        const end = identifier.endIndex;
-        return source.substring(start,end).trim();
-    }
-    if(propIdentifier){
-        const start = propIdentifier.startIndex;
-        const end = propIdentifier.endIndex;
-        return source.substring(start,end).trim();
-    }
-    if(fieldIdentifier){
-        const start = fieldIdentifier.startIndex;
-        const end = fieldIdentifier.endIndex;
-        return source.substring(start,end).trim();
-    }
-    const raw = source.substring(node.startIndex,node.startIndex + 20).trim();
-    const cut = raw.split(/[\s({:=<]/)[0];
-    return cut;
+  }
+
+  return "anonymous";
+
 }
 
 export const initParsers = async () =>{

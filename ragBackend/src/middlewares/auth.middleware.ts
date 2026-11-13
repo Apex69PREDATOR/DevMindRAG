@@ -28,6 +28,9 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
     res.status(401).json({ error: "Unauthorized — no token provided" });
     return;
   }
+
+  console.log("authMiddleware: token found", cookieToken);
+
   try {
     const payload = jwt.verify(cookieToken, process.env.JWT_SECRET as string) as AuthPayload;
     req.user = payload;
