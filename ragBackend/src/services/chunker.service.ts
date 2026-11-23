@@ -1,6 +1,7 @@
 import  {Parser,Node,Language}  from "web-tree-sitter";
 import path from "path";
 import { RawFile } from "./github.service";
+import { split_large_chunk } from "../utils/token_split";
 export interface CodeChunk {
     content : string;
     metadata : {
@@ -59,40 +60,6 @@ const LANGUAGE_CONFIG : Record<string,{getParser:()=>Parser | null,extractTypes:
     "method_declaration",]
     }
     
-}
-
-const MAX_CHUNK_SIZE = 32000;
-const SPLIT_OVERLAP = 200;
-
-const split_large_chunks = (chunk:CodeChunk):CodeChunk[]=>{
-    const n = chunk.content.length
-    if(n<=MAX_CHUNK_SIZE)
-        return [chunk];
-    
-    let start = 0;
-    const parts:CodeChunk[] = [];
-    let partIndex = 1;
-
-    while(start<n){
-        const end  = Math.min(start+MAX_CHUNK_SIZE,n);
-        const content_part = chunk.content.substring(start,end);
-
-        parts.push({
-            content  :content_part,
-            metadata :{
-                ...chunk.metadata,
-                name : `${chunk.metadata.name} part${partIndex}`
-            }
-        });
-
-        if(end >= n) break;
-
-        partIndex++;
-        start = end - SPLIT_OVERLAP;
-    }
-
-
-    return parts;
 }
 
 const getChunkType = (nodeType:string):string=>{
@@ -393,7 +360,7 @@ export const generateChunksFromFile = (files:RawFile[],repoId:string):CodeChunk[
     if(acceptedLanguages.includes(file.language)){
         const codeChunks = chunkCodeFile(file,repoId);
         if(codeChunks){ 
-            const processedChunks = codeChunks.flatMap(chunk=> split_large_chunks(chunk));
+            const processedChunks = codeChunks.flatMap(chunk=> split_large_chunk(chunk));
         chunks.push(...processedChunks);
 
 
@@ -401,7 +368,7 @@ export const generateChunksFromFile = (files:RawFile[],repoId:string):CodeChunk[
     else if(file.language === "markdown"){
         const markdownChunks = chunkMarkdownFile(file,repoId);
         if(markdownChunks){ 
-            const processedChunks = markdownChunks.flatMap(chunk=> split_large_chunks(chunk));
+            const processedChunks = markdownChunks.flatMap(chunk=> split_large_chunk(chunk));
              
             chunks.push(...processedChunks);}
     }
