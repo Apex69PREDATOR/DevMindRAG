@@ -7,6 +7,7 @@ import { generateChunksFromFile } from "../services/chunker.service";
 import { embedCodeChunk } from "../services/embedder.service";
 import { checkAndUpdateStaleness } from "../services/staleness.service";
 import { validateRepoOwnership } from "./chat.controller";
+import { retry_db_operation } from "../utils/db_retry";
 
 const repoUrlSchema = z.object({
     repoUrl: z.url(),
@@ -30,16 +31,16 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
     const {repoUrl} = parsedRepo.data
     const {owner, repo} = parseOwnerAndRepo(repoUrl) // Validate the repo URL format
     const fullName = `${owner}/${repo}`
-    const repoExists = await prisma.repository.findUnique({where:{fullName}})
+    const repoExists = await retry_db_operation(() => prisma.repository.findUnique({where:{fullName}}))
     if(repoExists && repoExists.status !== "failed"){
         res.status(400).json({error:`Repository ${fullName} already exists.`})
         return
     }
-   const repoRecord = await prisma.repository.upsert({
+   const repoRecord = await retry_db_operation(() => prisma.repository.upsert({
     where: { fullName },
     create: { owner, name: repo, fullName, status: "ingesting",userId:id },
     update: { status: "ingesting" },
-  });
+  }));
 
   res.status(200).json({message:`Ingestion of repository ${fullName} has started.`,id:repoRecord.id})
   try{
@@ -60,29 +61,28 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
     if (global.gc) global.gc();
   }
 
-         await prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}});
+         await retry_db_operation(() => prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}}));
 
          if (global.gc) global.gc(); 
       })
 
-      await prisma.repository.update({where:{id:repoRecord.id},data:{
+      await retry_db_operation(() => prisma.repository.update({where:{id:repoRecord.id},data:{
         status:"ingested",
         isPrivate:metaData.isPrivate,
         isStale:false,
         lastSyncedAt: new Date(),
         lastCommitAt: metaData.latestCommit
-      }
-      })
+      }}));
 
       console.log(`✅ Ingestion complete for ${fullName}`);
   
   }
 
 catch(err){
-    await prisma.repository.update({
+    await retry_db_operation(() => prisma.repository.update({
         where: { id: repoRecord.id },
         data: { status: "failed" },
-    });
+    }));
    console.log(err);
    
 }
@@ -95,16 +95,16 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
         res.status(401).json({error:"Unauthorized"})
         return
     }
-    const repoRecord = await prisma.repository.findUnique({where:{id:repoId,userId:id}})
+    const repoRecord = await retry_db_operation(() => prisma.repository.findUnique({where:{id:repoId,userId:id}}))
     if(!repoRecord){
         res.status(404).json({error:`Repository id ${repoId} not found.`})
         return
     }
 
-    await prisma.repository.update({
+    await retry_db_operation(() => prisma.repository.update({
         where: { id: repoRecord.id },
         data: { status: "ingesting" },
-    });
+    }));
 
     res.status(200).json({message:`Re-sync of repository ${repoRecord.fullName} has started.`,id:repoRecord.id});
 
@@ -122,7 +122,7 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
   const chunks = generateChunksFromFile(batchFiles, repoRecord.id);
   if (!chunks || chunks.length < 1) return;
 
-  const EMBED_BATCH = 25; // small sub-batches
+  const EMBED_BATCH = 30; // small sub-batches
   for (let j = 0; j < chunks.length; j += EMBED_BATCH) {
     const subBatch = chunks.slice(j, j + EMBED_BATCH);
     const embedded = await embedCodeChunk(subBatch);
@@ -134,29 +134,29 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
   // Clear chunks array after processing
   chunks.length = 0;
 
-  await prisma.repository.update({
+  await retry_db_operation(() => prisma.repository.update({
     where: { id: repoRecord.id },
     data:  { chunksCount: total_chunks }
-  });
+  }));
 })
 
-      await prisma.repository.update({where:{id:repoRecord.id},data:{
+      await retry_db_operation(() => prisma.repository.update({where:{id:repoRecord.id},data:{
         status:"ingested",
         isPrivate:metaData.isPrivate,
         isStale:false,
         lastSyncedAt: new Date(),
         lastCommitAt: metaData.latestCommit
       }
-      })
+      }));
 
       console.log(`✅ Ingestion complete for ${repoRecord.fullName}`);
         
     }
     catch(err){
-        await prisma.repository.update({
+        await retry_db_operation(() => prisma.repository.update({
             where: { id: repoRecord.id },
             data: { status: "failed" },
-        });
+        }));
         console.log(err);
 
     }
