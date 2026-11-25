@@ -61,7 +61,8 @@ export const ingestRepo = async (req:Request,res:Response):Promise<void>=>{
     if (global.gc) global.gc();
   }
 
-         await retry_db_operation(() => prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}}));
+         await retry_db_operation(() => prisma.repository.update({where:{id:repoRecord.id},data:{chunksCount:total_chunks}})).catch(err=>console.log("updating chunk count failed",err)
+         );
 
          if (global.gc) global.gc(); 
       })
@@ -137,7 +138,8 @@ export const resyncRepo = async (req:Request,res:Response):Promise<void>=>{
   await retry_db_operation(() => prisma.repository.update({
     where: { id: repoRecord.id },
     data:  { chunksCount: total_chunks }
-  }));
+  })).catch(err=>console.log("error updating chunk count",err)
+  );
 })
 
       await retry_db_operation(() => prisma.repository.update({where:{id:repoRecord.id},data:{

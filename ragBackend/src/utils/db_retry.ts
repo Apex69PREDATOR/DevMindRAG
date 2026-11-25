@@ -1,6 +1,6 @@
 const sleep = (ms:number) => new Promise<void>(r=>setTimeout(r,ms));
 
-const TRANSIENT_PRISMA_CODES = new Set(['p1001','p1002','p1008','p1017']);
+const TRANSIENT_PRISMA_CODES = new Set(['P1001','P1002','P1008','P1017']);
 
 const isTransientDbError = (err:any):boolean=>{
     return TRANSIENT_PRISMA_CODES.has(err?.code) || err?.name ==="PrismaClientInitializationError"
